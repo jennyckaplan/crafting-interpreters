@@ -12,48 +12,68 @@ mod token;
 
 use scanner::Scanner;
 
-fn run(source: &str) {
+#[derive(Debug)]
+enum AppError {
+    IoError(io::Error),
+    ScannerError(scanner::ScannerError),
+}
+
+fn scan(source: &str) -> Result<(), AppError> {
     let mut scanner = Scanner::new(source.to_string());
-    let tokens = scanner.scan_tokens().unwrap();
+    let tokens = match scanner.scan_tokens() {
+        Ok(tokens) => tokens,
+        Err(err) => return Err(AppError::ScannerError(err)),
+    };
     for token in tokens {
         println!("{}", token);
     }
+
+    Ok(())
 }
 
-fn run_prompt() -> Result<(), io::Error> {
+fn scan_prompt() -> Result<(), AppError> {
     loop {
         print!("> ");
-        io::stdout().flush()?;
+        match io::stdout().flush() {
+            Ok(_) => {}
+            Err(err) => return Err(AppError::IoError(err)),
+        }
 
         let stdin = io::stdin();
         let mut user_input = String::new();
-        stdin.read_line(&mut user_input)?;
+        match stdin.read_line(&mut user_input) {
+            Ok(_) => {}
+            Err(err) => return Err(AppError::IoError(err)),
+        }
 
         if user_input.trim().is_empty() {
             break;
         }
 
-        run(&user_input)
+        scan(&user_input)?
     }
 
     Ok(())
 }
 
-fn run_file(path: &str) -> Result<(), io::Error> {
-    let source = read_to_string(path)?;
+fn scan_file(path: &str) -> Result<(), AppError> {
+    let source = match read_to_string(path) {
+        Ok(source) => source,
+        Err(err) => return Err(AppError::IoError(err)),
+    };
 
-    run(&source);
+    scan(&source)?;
 
     Ok(())
 }
 
-fn main() -> Result<(), io::Error> {
+fn run() -> Result<(), AppError> {
     // Skip the first argument, which is the path used to call the program
     let args: Vec<String> = env::args().skip(1).collect();
 
     match args.len() {
-        0 => run_prompt()?,
-        1 => run_file(&args[0])?,
+        0 => scan_prompt()?,
+        1 => scan_file(&args[0])?,
         _ => {
             println!("Usage: jlox [script]");
             process::exit(exitcode::USAGE);
@@ -61,4 +81,18 @@ fn main() -> Result<(), io::Error> {
     }
 
     Ok(())
+}
+
+fn main() {
+    match run() {
+        Ok(_) => {}
+        Err(err) => match err {
+            AppError::IoError(err) => {
+                println!("Uh oh, something went wrong internally. {}", err);
+            }
+            AppError::ScannerError(err) => {
+                println!("{}", err);
+            }
+        },
+    }
 }

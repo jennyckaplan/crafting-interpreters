@@ -1,4 +1,23 @@
+use std::fmt;
+
 use crate::token::{Token, TokenType};
+
+#[derive(Debug)]
+pub struct ScannerError {
+    line: usize,
+    message: String,
+}
+
+impl fmt::Display for ScannerError {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            fmt,
+            "[line {line}] Error: {message}",
+            line = self.line,
+            message = self.message,
+        )
+    }
+}
 
 pub struct Scanner {
     source: String,
@@ -65,7 +84,7 @@ impl Scanner {
         self.source.chars().nth(self.current).unwrap()
     }
 
-    fn string(&mut self) {
+    fn string(&mut self) -> Result<(), ScannerError> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -74,8 +93,10 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            println!("Unterminated string"); // TODO: custom error
-            return;
+            return Err(ScannerError {
+                line: self.line,
+                message: "Unterminated string.".to_string(),
+            });
         }
 
         // The closing ".
@@ -84,6 +105,8 @@ impl Scanner {
         // Trim the surrounding quotes
         let value = &self.source[self.start + 1..self.current - 1];
         self.add_token_with_literal(TokenType::String, value.to_string());
+
+        Ok(())
     }
 
     fn peek_next(&self) -> char {
@@ -159,7 +182,7 @@ impl Scanner {
         self.add_token(token_type.clone());
     }
 
-    fn scan_token(&mut self) -> Result<(), ()> {
+    fn scan_token(&mut self) -> Result<(), ScannerError> {
         let c = self.advance();
 
         match c {
@@ -219,7 +242,7 @@ impl Scanner {
             '\n' => {
                 self.line += 1;
             }
-            '"' => self.string(),
+            '"' => self.string()?,
             'o' => {
                 if self.is_match('r') {
                     self.add_token(TokenType::Or);
@@ -231,7 +254,10 @@ impl Scanner {
                 } else if self.is_alpha(c) {
                     self.identifier();
                 } else {
-                    println!("Unexpected character."); // TODO: custom error here
+                    return Err(ScannerError {
+                        line: self.line,
+                        message: "Unexpected character.".to_string(),
+                    });
                 }
             }
         }
@@ -239,7 +265,7 @@ impl Scanner {
         Ok(())
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ()> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ScannerError> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token()?;
