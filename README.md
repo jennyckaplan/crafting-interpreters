@@ -9,3 +9,7 @@ On Linux and macOS systems, this is done as follows:
 ```curl https://sh.rustup.rs -sSf | sh```
 
 Otherwise, follow the instructions [here](https://doc.rust-lang.org/cargo/getting-started/installation.html).
+
+### Step 2: Compile and run
+
+```cargo run``` from the root.
