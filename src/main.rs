@@ -85,13 +85,18 @@ fn run() -> Result<(), AppError> {
 
 fn main() {
     match run() {
-        Ok(_) => {}
+        Ok(_) => process::exit(exitcode::OK),
         Err(err) => match err {
             AppError::IoError(err) => {
-                println!("Uh oh, something went wrong internally. {}", err);
+                println!(
+                    "Uh oh, something went wrong reading your file or input. {}",
+                    err
+                );
+                process::exit(exitcode::IOERR);
             }
             AppError::ScannerError(err) => {
                 println!("{}", err);
+                process::exit(exitcode::DATAERR);
             }
         },
     }
